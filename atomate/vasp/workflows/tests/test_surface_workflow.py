@@ -4,11 +4,11 @@ from __future__ import division, print_function, unicode_literals, absolute_impo
 
 import os, unittest, glob
 
-from fireworks.core.launchpad import LaunchPad
 from fireworks.core.rocket_launcher import launch_rocket
 
-from atomate.vasp.workflows.base.surface import SurfaceWorkflowManager
+from atomate.vasp.workflows.base.surface import SurfaceWorkflowCreator
 from atomate.vasp.powerups import use_fake_vasp
+from atomate.utils.testing import AtomateTest
 
 from pymatgen.core.surface import SlabGenerator, Structure
 
@@ -18,26 +18,27 @@ __email__ = "rit001@eng.ucsd.edu"
 
 module_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
 db_dir = os.path.join(module_dir, "..", "..", "..", "common", "test_files")
-reference_dir = os.path.join(module_dir, "..", "..", "test_files", "surface_wf")
+ref_dir = os.path.join(module_dir, "..", "..", "test_files")
 
 DEBUG_MODE = False  # If True, retains the database and output dirs at the end of the test
 VASP_CMD = None  # If None, runs a "fake" VASP. Otherwise, runs VASP with this command...
-_write_task_docs = False # Test developer option: defaults to False, need to be True only once
 
 
-class TestSurfaceWorkflow(unittest.TestCase):
+class TestSurfaceWorkflow(AtomateTest):
 
     def setUp(self):
+        super(TestSurfaceWorkflow, self).setUp()
+
         # Set up workflow
+        reference_dir = os.path.join(ref_dir, "surface_wf")
         self.ucell = Structure.from_file(os.path.join(reference_dir,
                                                       "Li_mp-135_conventional_unit_cell_k45",
                                                       "inputs", "POSCAR"))
         self.slab = SlabGenerator(self.ucell, (1, 1, 1), 10, 10,
                                   max_normal_search=1).get_slabs()[0]
-        self.lp = LaunchPad()
-        self.wfgen = SurfaceWorkflowManager(db_file=os.path.join(db_dir, "db.json"),
+        self.wfgen = SurfaceWorkflowCreator(db_file=os.path.join(db_dir, "db.json"),
                                             scratch_dir=reference_dir,
-                                            cwd=reference_dir, k_product=45,
+                                            run_dir=reference_dir, k_product=45,
                                             vasp_cmd="vasp")
         self.mpid = "mp-135"
 
@@ -47,7 +48,7 @@ class TestSurfaceWorkflow(unittest.TestCase):
 
         # Test workflow from conventional unit cell
         self.lp.reset(".", require_password=False)
-        wf = self.wfgen.from_conventional_unit_cell(self.ucell, 1, mpid=self.mpid)
+        wf = self.wfgen.from_conventional_unit_cell(self.ucell, 1, naming_tag=self.mpid)
         folder = "Li_mp-135_conventional_unit_cell_k45"
         base_dir = os.path.join(reference_dir, folder)
         wf = use_fake_vasp(wf, {"1": base_dir})
@@ -58,9 +59,9 @@ class TestSurfaceWorkflow(unittest.TestCase):
         # Test workflow from oriented unit cell
         self.lp.reset(".", require_password=False)
         scale_factor = self.slab.scale_factor
-        ouc = self.slab.oriented_unit_cell
-        wf = self.wfgen.from_oriented_unit_cell(ouc, (1,1,1),
-                                                scale_factor, mpid=self.mpid)
+        oriented_ucell = self.slab.oriented_unit_cell
+        wf = self.wfgen.from_oriented_unit_cell(oriented_ucell, (1,1,1),
+                                                scale_factor, naming_tag=self.mpid)
         folder = "Li_mp-135_bulk_k45_111"
         base_dir = os.path.join(reference_dir, folder)
         wf = use_fake_vasp(wf, {"1": base_dir})
@@ -72,7 +73,8 @@ class TestSurfaceWorkflow(unittest.TestCase):
         self.lp.reset(".", require_password=False)
         scale_factor = self.slab.scale_factor
         wf = self.wfgen.from_slab_cell(self.slab, (1,1,1), self.slab.shift,
-                                       scale_factor, ouc, 10, 10, mpid=self.mpid)
+                                       scale_factor, oriented_ucell, 10,
+                                       10, naming_tag=self.mpid)
         folder = "Li_mp-135_slab_k45_s10v10_111_shift0.08333333333333348"
         base_dir = os.path.join(reference_dir, folder)
         wf = use_fake_vasp(wf, {"1": base_dir})

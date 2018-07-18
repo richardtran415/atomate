@@ -20,14 +20,13 @@ module_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
 class TestFacetFWsGeneratorTask(unittest.TestCase):
     def setUp(self):
 
-        self.Fe = Structure.from_spacegroup("Im-3m", Lattice.cubic(2.819),
-                                                   ["Fe"], [(0,0,0)])
-        self.Co = Structure.from_spacegroup("P6_3/mmc", Lattice.hexagonal(2.5, 4.07),
-                                                   ["Co"], [(1/3,2/3,1/4)])
+        self.Fe = Structure(Lattice.cubic(2.819), ["Fe", "Fe"],
+                            [(0,0,0), (0.5,0.5,0.5)])
+        self.Co = Structure(Lattice.hexagonal(2.5, 4.07), ["Co", "Co"],
+                            [[1/3, 2/3, 1/4], [2/3, 1/3, 3/4]])
+        os.chdir(os.path.join(module_dir, "../../test_files/surface_wf"))
 
-        os.chdir("../../test_files/surface_wf")
-
-    def test_get_ouc_fw(self):
+    def test_get_oriented_ucell_fw(self):
 
         # Test for conventional unit cell
         p = Poscar(self.Fe)
@@ -35,7 +34,7 @@ class TestFacetFWsGeneratorTask(unittest.TestCase):
 
         facettask = FacetFWsGeneratorTask(structure_type="conventional_unit_cell",
                                           scratch_dir=".", k_product=50, db_file=".",
-                                          vasp_cmd="vasp", mmi=1, mpid="mp-13")
+                                          vasp_cmd="vasp", max_index=1, naming_tag="mp-13")
 
         fwaction = facettask.run_task({})
 
@@ -53,15 +52,15 @@ class TestFacetFWsGeneratorTask(unittest.TestCase):
     def test_get_slab_fw(self):
 
         # Test for oriented unit cell
-        ouc = SlabGenerator(self.Co, (1, 0, 2), 10, 10,
+        oriented_ucell = SlabGenerator(self.Co, (1, 0, 2), 10, 10,
                             max_normal_search=2).get_slab().oriented_unit_cell
-        p = Poscar(ouc)
+        p = Poscar(oriented_ucell)
         p.write_file("CONTCAR.relax2.gz")
 
         facettask = FacetFWsGeneratorTask(structure_type="oriented_unit_cell",
                                           scratch_dir=".", k_product=50,
                                           db_file=".", vasp_cmd="vasp",
-                                          miller_index=(1, 0, 2), mpid="mp-54")
+                                          miller_index=(1, 0, 2), naming_tag="mp-54")
 
         fwaction = facettask.run_task({})
 
