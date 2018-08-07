@@ -131,6 +131,7 @@ def get_wf_slab(slab, include_bulk_opt=False, slab_gen_params=None,
     """
     fws, parents = [], []
 
+<<<<<<< HEAD
     if molecules is None:
         molecules = []
 
@@ -158,6 +159,12 @@ def get_wf_slab(slab, include_bulk_opt=False, slab_gen_params=None,
             fws.append(get_slab_fw(ads_slab, include_bulk_opt, slab_gen_params,
                                    db_file=db_file, vasp_cmd=vasp_cmd,
                                    parents=parents, name=ads_name))
+=======
+    if bulk_structure:
+        vis = MVLSlabSet(bulk_structure, bulk=True)
+        fws.append(OptimizeFW(structure=bulk_structure, vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file))
+        parents = fws[0]
+>>>>>>> 457bb28916b6882f59fee7a6e2232f960bf9e84a
 
     # TODO: add analysis framework
     if isinstance(slab, Slab):
