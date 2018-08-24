@@ -263,7 +263,8 @@ def get_wf_molecules(molecules, vasp_input_set=None, db_file=None,
 def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                       adsorbates=None, max_index=1, slab_gen_params=None,
                       ads_structures_params=None, vasp_cmd="vasp",
-                      db_file=None, add_molecules_in_box=False):
+                      db_file=None, add_molecules_in_box=False,
+                      inc_reconstructions=False):
     """
     Convenience constructor that allows a user to construct a workflow
     that finds all adsorption configurations (or slabs) for a given
@@ -282,6 +283,9 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
         db_file (str): location of db file
         add_molecules_in_box (bool): whether to add molecules in a box
             for the entire workflow
+        inc_reconstructions (bool): Whether to include reconstructed slabs in
+            the workflow. generate_all_slabs will look for all possible reconstructions
+            available in a json file available on pymatgen/core/reconstruction_archives.json
 
     Returns:
         list of slab-specific Workflows
@@ -298,6 +302,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     sgp = slab_gen_params or {"min_slab_size": 7.0, "min_vacuum_size": 7,
                               "in_unit_planes": True, "max_normal_search": 1,
                               "center_slab": True}
+    if inc_reconstructions:
+        sgp['include_reconstructions'] = True
     slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
     wfs = []
     for slab in slabs:
