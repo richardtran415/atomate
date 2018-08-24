@@ -286,8 +286,18 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     Returns:
         list of slab-specific Workflows
     """
-    # TODO: these could be more well-thought out defaults
-    sgp = slab_gen_params or {"min_slab_size": 7.0, "min_vacuum_size": 20.0}
+    # By default, the parameters of the slab and vacuum size is in Angstroms. This is
+    # fine for systems with larger atomic density, but for systems like bcc Ba, we can
+    # end up with a slab size of only 3 to 4 atoms depending on the Miller index if say
+    # for example we select a slab size of 10Å. This is not a big issue for surface energy,
+    # however other quantities such as work function will be very inaccurate due to the
+    # small slab size. Alternatively, we can set the slab and vacuum thickness in units of
+    # dhkl, for production purposes this keeps the number of atoms consistent regardless of
+    # atomic density of different systems. 7 units of dhkl is a compromise for number of atoms
+    # in the slab (at least 8 atoms) and slab/vacuum thickness (at leasst 10Å) for most systems.
+    sgp = slab_gen_params or {"min_slab_size": 7.0, "min_vacuum_size": 7,
+                              "in_unit_planes": True, "max_normal_search": 1,
+                              "center_slab": True}
     slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
     wfs = []
     for slab in slabs:
