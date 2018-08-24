@@ -98,6 +98,11 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
                         db_file=db_file, parents=parents, job_type="normal")
     # Add slab metadata
     fw.tasks[-1]["additional_fields"].update({"slab": slab})
+    if parents:
+        parents_id = [f.fw_id for f in parents] \
+            if type(parents).__name__ == 'list' else parents.fw_id
+        fw.tasks[-1]["additional_fields"].update({"parent_fw_id": parents_id})
+
     return fw
 
 
@@ -290,7 +295,7 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     # dhkl, for production purposes this keeps the number of atoms consistent regardless of
     # atomic density of different systems. 7 units of dhkl is a compromise for number of atoms
     # in the slab (at least 8 atoms) and slab/vacuum thickness (at leasst 10Å) for most systems.
-    sgp = slab_gen_params or {"min_slab_size": 7.0, "min_vacuum_size": 7,
+    sgp = slab_gen_params or {"min_slab_size": 7, "min_vacuum_size": 7,
                               "in_unit_planes": True, "max_normal_search": 1,
                               "center_slab": True}
     if inc_reconstructions:
