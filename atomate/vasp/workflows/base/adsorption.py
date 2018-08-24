@@ -23,7 +23,6 @@ __author__ = 'Joseph Montoya, Richard Tran'
 __email__ = 'montoyjh@lbl.gov'
 
 
-# TODO: Add functionality for reconstructions
 # TODO: Add framework for including vibrations and free energy
 def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
                 parents=None, vasp_cmd="vasp", name=""):
@@ -255,7 +254,8 @@ def get_wf_molecules(molecules, vasp_input_set=None, db_file=None,
 def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                       adsorbates=None, max_index=1, slab_gen_params=None,
                       ads_structures_params=None, vasp_cmd="vasp",
-                      db_file=None, add_molecules_in_box=False):
+                      db_file=None, add_molecules_in_box=False,
+                      inc_reconstructions=False):
     """
     Convenience constructor that allows a user to construct a workflow
     that finds all adsorption configurations (or slabs) for a given
@@ -274,12 +274,27 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
         db_file (str): location of db file
         add_molecules_in_box (bool): whether to add molecules in a box
             for the entire workflow
+        inc_reconstructions (bool): Whether to include reconstructed slabs in
+            the workflow. generate_all_slabs will look for all possible reconstructions
+            available in a json file available on pymatgen/core/reconstruction_archives.json
 
     Returns:
         list of slab-specific Workflows
     """
-    # TODO: these could be more well-thought out defaults
-    sgp = slab_gen_params or {"min_slab_size": 7.0, "min_vacuum_size": 20.0}
+    # By default, the parameters of the slab and vacuum size is in Angstroms. This is
+    # fine for systems with larger atomic density, but for systems like bcc Ba, we can
+    # end up with a slab size of only 3 to 4 atoms depending on the Miller index if say
+    # for example we select a slab size of 10Å. This is not a big issue for surface energy,
+    # however other quantities such as work function will be very inaccurate due to the
+    # small slab size. Alternatively, we can set the slab and vacuum thickness in units of
+    # dhkl, for production purposes this keeps the number of atoms consistent regardless of
+    # atomic density of different systems. 7 units of dhkl is a compromise for number of atoms
+    # in the slab (at least 8 atoms) and slab/vacuum thickness (at leasst 10Å) for most systems.
+    sgp = slab_gen_params or {"min_slab_size": 7.0, "min_vacuum_size": 7,
+                              "in_unit_planes": True, "max_normal_search": 1,
+                              "center_slab": True}
+    if inc_reconstructions:
+        sgp['include_reconstructions'] = True
     slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
     wfs = []
     for slab in slabs:
