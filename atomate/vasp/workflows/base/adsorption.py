@@ -25,7 +25,7 @@ __email__ = 'montoyjh@lbl.gov'
 
 # TODO: Add framework for including vibrations and free energy
 def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
-                parents=None, vasp_cmd="vasp", name=""):
+                parents=None, vasp_cmd="vasp", name="", additional_fields=None):
     """
     Function to generate a a slab firework.  Returns a TransmuterFW if
     bulk_structure is specified, constructing the necessary transformations
@@ -103,6 +103,9 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
             if type(parents).__name__ == 'list' else parents.fw_id
         fw.tasks[-1]["additional_fields"].update({"parent_fw_id": parents_id})
 
+    if additional_fields:
+        fw.tasks[-1]["additional_fields"].update(additional_fields)
+
     return fw
 
 
@@ -152,7 +155,7 @@ def get_slab_trans_params(slab):
 
 def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
                 ads_structures_params=None, vasp_cmd="vasp",
-                db_file=None, add_molecules_in_box=False):
+                db_file=None, add_molecules_in_box=False, additional_fields=None):
     """
     Gets a workflow corresponding to a slab calculation along with optional
     adsorbate calcs and precursor oriented unit cell optimization
@@ -195,7 +198,8 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
     # Create slab fw and add it to list of fws
     slab_fw = get_slab_fw(slab, include_bulk_opt, db_file=db_file,
                           vasp_cmd=vasp_cmd, parents=parents,
-                          name="{} slab optimization".format(name))
+                          name="{} slab optimization".format(name),
+                          additional_fields=additional_fields)
     fws.append(slab_fw)
 
     for adsorbate in adsorbates:
@@ -207,7 +211,7 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
                 adsorbate.composition.formula, name, n)
             adsorbate_fw = get_slab_fw(
                 ads_slab, include_bulk_opt, db_file=db_file, vasp_cmd=vasp_cmd,
-                parents=parents, name=ads_name)
+                parents=parents, name=ads_name, additional_fields=additional_fields)
             fws.append(adsorbate_fw)
 
     if isinstance(slab, Slab):
@@ -260,7 +264,7 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                       adsorbates=None, max_index=1, slab_gen_params=None,
                       ads_structures_params=None, vasp_cmd="vasp",
                       db_file=None, add_molecules_in_box=False,
-                      inc_reconstructions=False):
+                      inc_reconstructions=False, additional_fields=None):
     """
     Convenience constructor that allows a user to construct a workflow
     that finds all adsorption configurations (or slabs) for a given
@@ -304,7 +308,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     wfs = []
     for slab in slabs:
         slab_wf = get_wf_slab(slab, include_bulk_opt, adsorbates,
-                              ads_structures_params, vasp_cmd, db_file)
+                              ads_structures_params, vasp_cmd, db_file,
+                              additional_fields=additional_fields)
         wfs.append(slab_wf)
 
     if add_molecules_in_box:
