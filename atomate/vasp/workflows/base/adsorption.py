@@ -188,7 +188,11 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
     if include_bulk_opt:
         oriented_bulk = slab.oriented_unit_cell
         vis = MVLSlabSet(oriented_bulk, bulk=True)
-        fws.append(OptimizeFW(structure=oriented_bulk, vasp_input_set=vis,
+        name = slab.composition.reduced_formula
+        if getattr(slab, "miller_index", None):
+            name += "_{}".format(slab.miller_index)
+        fws.append(OptimizeFW(name="{} ouc optimization".format(name),
+                              structure=oriented_bulk, vasp_input_set=vis,
                               vasp_cmd=vasp_cmd, db_file=db_file))
         parents = fws[-1]
 
