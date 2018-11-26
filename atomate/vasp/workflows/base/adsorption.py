@@ -178,6 +178,9 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
     """
     fws, parents = [], []
 
+    if additional_fields is None:
+        additional_fields = {}
+
     if adsorbates is None:
         adsorbates = []
 
@@ -194,6 +197,7 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
         fws.append(OptimizeFW(name="{} ouc optimization".format(name),
                               structure=oriented_bulk, vasp_input_set=vis,
                               vasp_cmd=vasp_cmd, db_file=db_file))
+        fw[-1].tasks[-1]["additional_fields"].update(additional_fields)
         parents = fws[-1]
 
     name = slab.composition.reduced_formula
