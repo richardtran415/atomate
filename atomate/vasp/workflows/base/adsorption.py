@@ -108,6 +108,7 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
     return fw
 
 
+# TODO: Termination transformations beyond simple cleavage (incorporate into pymatgen first)
 def get_slab_trans_params(slab):
     """
     Gets a set of slab transformation params
@@ -152,6 +153,8 @@ def get_slab_trans_params(slab):
             "min_slab_size": min_slab_size, "min_vacuum_size": min_vac_size}
 
 
+# TODO: Need to implement a check to avoid repetitive oriented unit cell
+# calculations calculations for different terminations of the same miller index
 def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
                 ads_structures_params=None, vasp_cmd="vasp",
                 db_file=None, add_molecules_in_box=False, additional_fields=None):
@@ -198,6 +201,8 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
                               structure=oriented_bulk, vasp_input_set=vis,
                               vasp_cmd=vasp_cmd, db_file=db_file))
         fws[-1].tasks[-1]["additional_fields"].update(additional_fields)
+        fws[-1].tasks[-1]["additional_fields"].\
+            update({"oriented_unit_cell": slab.oriented_unit_cell})
         parents = fws[-1]
 
     name = slab.composition.reduced_formula
