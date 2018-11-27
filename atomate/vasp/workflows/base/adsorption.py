@@ -145,7 +145,7 @@ def get_slab_trans_params(slab):
     # if slab.composition.reduced_formula == "Si":
     #     import nose; nose.tools.set_trace()
 
-    return {"miller_index": slab.miller_index, "shift": slab.shift,
+    return {"miller_index": [0, 0, 1], "shift": slab.shift,
             "min_slab_size": min_slab_size, "min_vacuum_size": min_vac_size}
 
 
