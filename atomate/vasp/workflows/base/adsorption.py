@@ -299,18 +299,20 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
         list of slab-specific Workflows
     """
     # We define three default sgp (parameters for SlabGenerator)
+    reduced_bulk = bulk_structure.get_primitive_structure(constrain_latt=[False, False, True,
+                                                                          False, False, False])
     if slab_gen_params:
         # Use slab_gen_params if user provided
         sgp = slab_gen_params
-    elif (len(bulk_structure)/bulk_structure.lattice.c)*10 >= 8:
-        # Use a minimum of 10 Å vacuum and slab for systems
-        # that have at least 8 atoms under a 10 Å slab
+    elif (len(reduced_bulk)/bulk_structure.lattice.c)*10 >= 8:
+        # Use a minimum of 10 Å vacuum and slab for systems that
+        # have at least 8 atoms under a 10 Å slab along (001)
         sgp = {"min_slab_size": 10, "min_vacuum_size": 10,
                "max_normal_search": 1,
                "center_slab": True}
     else:
-        # Use a minimum of 4 dhkl layers in the vacuum and slab for
-        # systems that have less than 8 atoms under a 10 Å slab
+        # Use a minimum of 4 dhkl layers in the vacuum and slab for systems
+        # that have less than 8 atoms under a 10 Å slab along (001)
         sgp = {"min_slab_size": 4, "min_vacuum_size": 4,
                "in_unit_planes": True, "max_normal_search": 1,
                "center_slab": True}
