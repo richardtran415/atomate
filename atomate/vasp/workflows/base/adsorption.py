@@ -43,6 +43,7 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
         parents (Fireworks or list of ints): parent FWs
         db_file (string): path to database file
         vasp_cmd (string): vasp command
+        additional_fields (dict): dict of additional fields to add
 
     Returns:
         Firework corresponding to slab calculation
@@ -98,11 +99,6 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
                         db_file=db_file, parents=parents, job_type="normal")
     # Add slab metadata
     fw.tasks[-1]["additional_fields"].update({"slab": slab})
-    if parents:
-        parents_id = [f.fw_id for f in parents] \
-            if type(parents).__name__ == 'list' else parents.fw_id
-        fw.tasks[-1]["additional_fields"].update({"parent_fw_id": parents_id})
-
     if additional_fields:
         fw.tasks[-1]["additional_fields"].update(additional_fields)
 
@@ -149,7 +145,7 @@ def get_slab_trans_params(slab):
     # if slab.composition.reduced_formula == "Si":
     #     import nose; nose.tools.set_trace()
 
-    return {"miller_index": [0, 0, 1], "shift": slab.shift,
+    return {"miller_index": slab.miller_index, "shift": slab.shift,
             "min_slab_size": min_slab_size, "min_vacuum_size": min_vac_size}
 
 
@@ -172,6 +168,7 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
             adsorbate molecule energies to the workflow
         db_file (string): path to database file
         vasp_cmd (string): vasp command
+        additional_fields (dict): dict of additional fields to add
 
     Returns:
         Workflow
@@ -294,6 +291,7 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
         inc_reconstructions (bool): Whether to include reconstructed slabs in
             the workflow. generate_all_slabs will look for all possible reconstructions
             available in a json file available on pymatgen/core/reconstruction_archives.json
+        additional_fields (dict): dict of additional fields to add
 
     Returns:
         list of slab-specific Workflows
