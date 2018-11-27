@@ -18,6 +18,7 @@ from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MVLSlabSet
 from pymatgen import Structure
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 __author__ = 'Joseph Montoya, Richard Tran'
 __email__ = 'montoyjh@lbl.gov'
@@ -56,11 +57,13 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
         if not isinstance(slab, Slab):
             raise ValueError("transmuter mode requires slab to be a Slab object")
 
-        # Get transformation from oriented bulk and slab
+        # Get transformation from bulk and slab
         oriented_bulk = slab.oriented_unit_cell
+        sg = SpacegroupAnalyzer(oriented_bulk)
+        conv_ucell = sg.get_conventional_standard_structure()
         slab_trans_params = get_slab_trans_params(slab)
         trans_struct = SlabTransformation(**slab_trans_params)
-        slab_from_bulk = trans_struct.apply_transformation(oriented_bulk)
+        slab_from_bulk = trans_struct.apply_transformation(conv_ucell)
 
         # Ensures supercell construction
         supercell_trans = SupercellTransformation.from_scaling_factors(
@@ -87,7 +90,7 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
                         {"species": [site.species_string for site in ads_sites],
                          "coords": [site.frac_coords for site in ads_sites]},
                         {"site_properties": site_props}]
-        fw = TransmuterFW(name=name, structure=oriented_bulk,
+        fw = TransmuterFW(name=name, structure=conv_ucell,
                           transformations=transformations,
                           transformation_params=trans_params,
                           copy_vasp_outputs=True, db_file=db_file,
@@ -145,7 +148,7 @@ def get_slab_trans_params(slab):
     # if slab.composition.reduced_formula == "Si":
     #     import nose; nose.tools.set_trace()
 
-    return {"miller_index": [0, 0, 1], "shift": slab.shift,
+    return {"miller_index": slab.miller_index, "shift": slab.shift,
             "min_slab_size": min_slab_size, "min_vacuum_size": min_vac_size}
 
 
