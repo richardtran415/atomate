@@ -153,8 +153,6 @@ def get_slab_trans_params(slab):
             "min_slab_size": min_slab_size, "min_vacuum_size": min_vac_size}
 
 
-# TODO: Need to implement a check to avoid repetitive oriented unit cell
-# calculations calculations for different terminations of the same miller index
 def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
                 ads_structures_params=None, vasp_cmd="vasp",
                 db_file=None, add_molecules_in_box=False, additional_fields=None):
@@ -326,9 +324,16 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     if inc_reconstructions:
         sgp['include_reconstructions'] = True
     slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
-    wfs = []
+    wfs, hkl_list = [], []
     for slab in slabs:
-        slab_wf = get_wf_slab(slab, include_bulk_opt, adsorbates,
+        # For this work flow, we want to avoid recalculating the same oriented
+        # unit cell for different terminations of the same Miller index
+        if include_bulk_opt and slab.miller_index not in hkl_list:
+            hkl_list.append(slab.miller_index)
+            inc_bulk_opt = True
+        else:
+            inc_bulk_opt = False
+        slab_wf = get_wf_slab(slab, inc_bulk_opt, adsorbates,
                               ads_structures_params, vasp_cmd, db_file,
                               additional_fields=additional_fields)
         wfs.append(slab_wf)
