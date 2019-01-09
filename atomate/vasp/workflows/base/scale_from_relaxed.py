@@ -7,14 +7,77 @@ This module defines a workflow for the optimization of similar structures using
 the relaxed configuration of a base structure as the initial configuration.
 """
 
-from fireworks import Workflow
+from fireworks import FiretaskBase, explicit_serialize
+from fireworks import Workflow, Firework
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
+from atomate.common.firetasks.glue_tasks import CopyFilesFromCalcLoc
 
 from pymatgen.transformations.standard_transformations import ScaleToRelaxedTransformation
+from pymatgen.io.vasp.sets import MPRelaxSet
+from pymatgen import Structure
 
 __author__ = 'Richard Tran, Hui Zheng'
 __email__ = 'rit001@eng.ucsd.edu'
+
+
+@explicit_serialize
+class WriteScaledStructureIOSet(FiretaskBase):
+    """
+    Apply the provided transformations to the input structure and write the
+    input set for that structure. Reads structure from POSCAR if no structure provided. Note that
+    if a transformation yields many structures from one, only the last structure in the list is
+    used.
+
+    Required params:
+        structure (Structure): input structure
+        transformations (list): list of names of transformation classes as defined in
+            the modules in pymatgen.transformations
+        vasp_input_set (VaspInputSet): VASP input set.
+
+    Optional params:
+        transformation_params (list): list of dicts where each dict specifies the input parameters
+            to instantiate the transformation class in the transformations list.
+        override_default_vasp_params (dict): additional user input settings.
+        prev_calc_dir: path to previous calculation if using structure from another calculation.
+    """
+
+    required_params = ["similar_structure", "unrelaxed_structure", "vasp_input_set"]
+    optional_params = ["relaxed_structure"]
+
+    def run_task(self, fw_spec):
+
+        transformations = [ScaleToRelaxedTransformation]
+        transformation_params = {"unrelaxed_structure": self["unrelaxed_structure"],
+                                 "relaxed_structure": relaxed_structure,
+                                 "species_map": species_map}
+
+        for t in self["transformations"]:
+            found = False
+            for m in ["advanced_transformations", "defect_transformations",
+                      "site_transformations", "standard_transformations"]:
+                mod = import_module("pymatgen.transformations.{}".format(m))
+                try:
+                    t_cls = getattr(mod, t)
+                except AttributeError:
+                    continue
+                t_obj = t_cls(**transformation_params.pop(0))
+                transformations.append(t_obj)
+                found = True
+            if not found:
+                raise ValueError("Could not find transformation: {}".format(t))
+
+        structure = self['similar_structure']
+        ts = TransformedStructure(structure)
+        transmuter = StandardTransmuter([ts], transformations)
+        final_structure = transmuter.transformed_structures[-1].final_structure.copy()
+        vis_orig = self["vasp_input_set"]
+        vis_dict = vis_orig.as_dict()
+        vis_dict["structure"] = final_structure.as_dict()
+        vis = vis_orig.__class__.from_dict(vis_dict)
+        vis.write_input(".")
+
+        dumpfn(transmuter.transformed_structures[-1], "transformations.json")
 
 
 def get_scale_from_relaxed_fw(unrelaxed_structure, relaxed_structure, similar_structure,
@@ -47,24 +110,31 @@ def get_scale_from_relaxed_fw(unrelaxed_structure, relaxed_structure, similar_st
     Returns:
         Firework corresponding to similar_structure optimization
     """
-    vasp_input_set = vasp_input_set or MPRelaxSet(similar_structure)
+    name = "%s_scaled_from_relaxed_%s_%s" % (type(similar_structure).__name__,
+                                             unrelaxed_structure.composition.reduced_formula,
+                                             type(unrelaxed_structure).__name__)
 
-    if parents:
-        relaxed_structure = Structure.from_file(parents[0].spec['calc_locs'], "CONTCAR")
+    fw =  TransmuterFW(similar_structure, name=name,
+                       transformations=['ScaleToRelaxedTransformation'],
+                       transformation_params={"unrelaxed_structure": unrelaxed_structure,
+                                              "relaxed_structure": relaxed_structure,
+                                              "species_map": species_map},
+                       copy_vasp_outputs=False, db_file=db_file,
+                       vasp_cmd=vasp_cmd, parents=parents,
+                       vasp_input_set=vasp_input_set)
 
-    name += "%s_%s_scaled_from_relaxed_%s_%s" % (similar_structure.composition.reduced_formula,
-                                                 type(similar_structure).__name__,
-                                                 relaxed_structure.composition.reduced_formula,
-                                                 type(relaxed_structure).__name__)
-
-    return TransmuterFW(similar_structure, name=name,
-                        transformations=['ScaleToRelaxedTransformation'],
-                        transformation_params={"unrelaxed_structure": unrelaxed_structure,
-                                               "relaxed_structure": relaxed_structure,
-                                               "species_map": species_map},
-                        copy_vasp_outputs=False, db_file=db_file,
-                        vasp_cmd=vasp_cmd, parents=parents,
-                        vasp_input_set=vasp_input_set)
+    fw.tasks[0] = WriteScaledStructureIOSet(similar_structure=similar_structure,
+                                            unrelaxed_structure=unrelaxed_structure,
+                                            vasp_input_set=vasp_input_set,
+                                            relaxed_structure=relaxed_structure)
+    return fw
+    # fw = fw.as_dict()
+    # fw['spec']['_tasks'][0] = WriteScaledStructureIOSet(similar_structure=similar_structure,
+    #                                                     unrelaxed_structure=unrelaxed_structure,
+    #                                                     vasp_input_set=vasp_input_set,
+    #                                                     relaxed_structure=relaxed_structure)
+    #
+    # return Firework.from_dict(fw)
 
 
 def get_wf_from_relaxed(unrelaxed_structure, relaxed_structure, similar_structures,
@@ -88,18 +158,19 @@ def get_wf_from_relaxed(unrelaxed_structure, relaxed_structure, similar_structur
         Workflow
     """
     fws = []
+    if parents:
+        fws.extend(parents)
     vasp_input_set = vasp_input_set or MPRelaxSet(similar_structures[0])
 
     for s in similar_structures:
         vasp_input_set.structure = s
         fw = get_scale_from_relaxed_fw(unrelaxed_structure, relaxed_structure, s,
-                                       species_map=species_map, vasp_cmd=vasp_cmd,
-                                       db_file=db_file, vasp_input_set=vasp_input_set,
-                                       parents=parents)
+                                       vasp_cmd=vasp_cmd, db_file=db_file,
+                                       vasp_input_set=vasp_input_set, parents=parents)
         fws.append(fw)
 
-    name += "scale_from_relaxed_%s_%s" % (relaxed_structure.composition.reduced_formula,
-                                          type(relaxed_structure).__name__)
+    name = "scale_from_relaxed_%s_%s" % (unrelaxed_structure.composition.reduced_formula,
+                                         type(unrelaxed_structure).__name__)
 
     wf = Workflow(fws, name=name)
 
@@ -132,14 +203,13 @@ def get_wf_from_unrelaxed(base_structure, similar_structures, vasp_cmd="vasp",
         Workflow
     """
     vasp_input_set = vasp_input_set or MPRelaxSet(base_structure)
-    name = "%s_%s_base_relaxation" % (base_structure.composition.reduced_formula,
-                                      type(base_structure).__name__)
+    name = "%s_base_relaxation" % (type(base_structure).__name__)
     optFW = OptimizeFW(base_structure, vasp_input_set=vasp_input_set, name=name,
                        vasp_cmd=vasp_cmd, db_file=db_file, parents=parents)
     optFW = optFW.as_dict()
     t = CopyFilesFromCalcLoc(calc_loc=name, filenames=["CONTCAR"]).as_dict()
     optFW['spec']['_tasks'].append(t)
     optFW = OptimizeFW.from_dict(optFW)
-    return get_wfs_from_relaxed(base_structure, None, similar_structures,
+    return get_wf_from_relaxed(base_structure, None, similar_structures,
                                 vasp_cmd=vasp_cmd, db_file=db_file, parents=[optFW],
                                 vasp_input_set=vasp_input_set)
